@@ -2,4 +2,4 @@
 
 ### Setup
 Run rundocker.sh
-# odas
+Open https://localhost
