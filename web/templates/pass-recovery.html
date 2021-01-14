@@ -1,0 +1,43 @@
+{% extends "common/layout.html" %}
+{% block title %}Odzyskiwanie hasła{% endblock %}
+{% block main %}
+{% with messages = get_flashed_messages() %}
+<section> 
+    <form class="form-container" method="POST" action="/passrecovery">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        {% if msg is not none %}
+            {% if msg.get("login") is not none %}
+                <label class="alert alert-secondary" role="alert">
+                    !!! Wiadomość (w rzeczywistym systemie tego tutaj nie będzie)
+                    <hr>
+                    Odbiorca: {{ msg.get("email") }} <br>
+                    Witaj {{ msg.get("login") }}! <br>
+                    Poprosiłeś o zmianę hasła. Kliknij <a href="{{ msg.get("link") }}">tutaj</a> aby ustawić nowe hasło. <br>
+                    Link będzie aktywny przez 15 minut.
+                    <hr>
+                </label>
+            {% else %}
+                <label class="alert alert-secondary" role="alert">
+                    !!! Informacja (w rzeczywistym systemie tego tutaj nie będzie)
+                    <hr>
+                    Nie wysłano wiadomości, bo login nie istnieje w bazie, <br>
+                    ale użytkownik nie musi tego wiedzieć.
+                    <hr>
+                </label>
+            {% endif %}
+        {% endif %}
+        <h2>Podaj login by otrzymać link do resetowania hasła</h2>
+        {% if info is not none %}
+            <label class="alert alert-info" role="alert">Na email przypisany do konta (jeżeli istnieje) wysłano link do resetowania hasła.</label>
+        {% endif %}
+        <div class="form-elements">
+            <p>
+                <label>Login</label>
+                <input type="text" class="form-control validated-input" id="login" name="login" placeholder="Login"/>
+            </p>
+        </div>
+        <input type="submit" name="submit" value="Wyślij"/>
+    </form>
+</section>
+{% endwith %}
+{% endblock %}

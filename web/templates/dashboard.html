@@ -1,0 +1,55 @@
+{% extends "common/layout.html" %}
+{% block title %}Notatki{% endblock %}
+{% block main %}
+{% with messages = get_flashed_messages() %}
+{% with form_data = session.pop('form_data', {}) %}
+<section>
+    {% if attempts|length %}
+        <div class="alert alert-danger" role="alert">
+            <h5 class="alert-heading">Wykryto podejrzane próby logowania. Jeżeli ich nie rozpoznajesz, zabezpiecz konto.</h5>
+            <hr>
+            {% for item in attempts %}
+                <p>
+                    <strong>{{ item.get("time") }} (UTC)</strong> 
+                    - <strong>{{ item.get("is_success") }}</strong>
+                    próba logowania z adresu <strong>{{ item.get("ip") }}</strong>
+                </p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if last_login is not none %}
+        <div class="alert alert-info" role="alert">
+            <p>
+                Ostatnia wizyta: <strong>{{ last_login }} (UTC)</strong>
+            </p>
+        </div>
+    {% endif %}
+    {% include "/note-form.html" %}
+    <div id="notes-container">
+        {% for note in notes %}
+            <div class="alert alert-dark" id="{{ note.get('id') }}">
+                <strong class="mr-auto">{{ note.get('owner') }} ({{ note.get('is_public') }})</strong> 
+                <small class="text-muted">{{ note.get('creation_time') }}</small> 
+                <hr>
+                {% if note.get('password') == 'true' %}
+                    <form method="POST" action="/note/{{ note.get('id') }}">
+                        <label>Hasło</label>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="password" id="password" name="password">
+                        <input type="submit" id="submit" name="submit" value="Odszyfruj"/>
+                    </form>
+                    <hr>
+                {% endif %}
+                {{ note.get('text') }} 
+                {% if note.get('file') is not none %}
+                    <hr>
+                    <a href="/download/{{ note.get('file').get('id') }}"> {{ note.get('file').get('file_name') }}</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}"/>
+</section>
+{% endwith %}
+{% endwith %}
+{% endblock %}

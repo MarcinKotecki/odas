@@ -1,0 +1,34 @@
+{% extends "common/layout.html" %}
+{% block title %}Logowanie{% endblock %}
+{% block main %}
+{% with messages = get_flashed_messages() %}
+{% with form_data = session.pop('form_data', {}) %}
+<section>
+    <form class="form-container" method="POST" action="/login">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <h4>Zaloguj się</h4>
+        <div class="form-elements">
+            <p>
+                <label>Login</label>
+                <input type="text" class="form-control validated-input" id="login" name="login" placeholder="Login" value="{{ form_data.get('login', '') }}"/>
+            </p>
+            <p>
+                <label>Hasło</label>
+                <input type="password" class="form-control validated-input" id="password" name="password" placeholder="Hasło"/>
+            </p>
+            {% if 'loginorpassword' in messages %}
+                <label></label>
+                <label class="alert alert-danger" role="alert">Niepoprawne dane logowania.</label>
+            {% endif %}
+            {% if 'toomanyattempts' in messages %}
+                <label></label>
+                <label class="alert alert-danger" role="alert">Za dużo nieudanych prób logowania.<br>Zaczekaj około 5 minut.</label>
+            {% endif %}
+        </div>
+        <input type="submit" name="submit" value="Zaloguj się"/>
+        <a href="/passrecovery">zapomniałem hasła</a>
+    </form>
+</section>
+{% endwith %}
+{% endwith %}
+{% endblock %}

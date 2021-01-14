@@ -1,0 +1,37 @@
+{% extends "common/layout.html" %}
+{% block title %}Resetowanie hasła{% endblock %}
+{% block main %}
+{% with messages = get_flashed_messages() %}
+<section>
+    <form class="form-container" method="POST" action="/passreset">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <h4>Ustaw nowe hasło</h4>
+        {% if 'invalid' in messages %}
+            <label class="alert alert-danger" role="alert">Niepoprawny login lub token niepoprawny/wygasł.</label>
+        {% endif %}
+        <div class="form-elements">
+            <p>
+                <label>Login</label>
+                <input type="text" class="form-control validated-input" id="login" name="login" placeholder="Login"/>
+            </p>
+            <p>
+                <label>Hasło</label>
+                <input type="password" class="form-control validated-input" id="password" name="password" placeholder="Hasło"/>
+                {% if 'password' in messages %}
+                <label class="alert alert-danger" role="alert">Błędne hasło (min. 8 znaków, duża i mała litera, cyfra, znak specjalny)</label>
+                {% endif %}
+            </p>
+            <p>
+                <label>Powtórz hasło</label>
+                <input type="password" class="form-control validated-input" id="rpassword" name="rpassword" placeholder="Powtórz hasło"/>
+                {% if 'rpassword' in messages %}
+                <label class="alert alert-danger" role="alert">Różne hasła</label>
+                {% endif %}
+            </p>
+            <input id="token" name="token" type="hidden" value="{{ token }}">
+        </div>
+        <input type="submit" name="submit" value="Ustaw nowe hasło"/>
+    </form>
+</section>
+{% endwith %}
+{% endblock %}

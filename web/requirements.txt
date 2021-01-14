@@ -1,0 +1,13 @@
+Flask
+flask_sqlalchemy
+flask_migrate
+flask_session
+flask_wtf
+python-dotenv
+psycopg2-binary
+bcrypt
+gunicorn
+requests
+pycryptodome
+regex
+PyJWT

@@ -1,0 +1,47 @@
+{% extends "common/layout.html" %}
+{% block title %}Rejestracja{% endblock %}
+{% block main %}
+{% with messages = get_flashed_messages() %}
+{% with form_data = session.pop('form_data', {}) %}
+<section>
+    <form class="form-container" method="POST" action="/register">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <h4>Zarejestruj się</h4>
+        <div class="form-elements">
+            <p>
+                <label>Login</label>
+                <input type="text" class="form-control validated-input" id="login" name="login" placeholder="Login" value="{{ form_data.get('login', '') }}"/>
+                {% if 'login_taken' in messages %}
+                <label class="alert alert-danger" role="alert">Login zajęty</label>
+                {% elif 'login' in messages %}
+                <label class="alert alert-danger" role="alert">Błędny login (3-16 znaków, małe litery)</label>
+                {% endif %}
+            </p>
+            <p>
+                <label>Email</label>
+                <input type="text" class="form-control validated-input" id="email" name="email" placeholder="Email" value="{{ form_data.get('email', '') }}"/>
+                {% if 'email' in messages %}
+                <label class="alert alert-danger" role="alert">Błędny email</label>
+                {% endif %}
+            </p>
+            <p>
+                <label>Hasło</label>
+                <input type="password" class="form-control validated-input" id="password" name="password" placeholder="Hasło"/>
+                {% if 'password' in messages %}
+                <label class="alert alert-danger" role="alert">Błędne hasło (min. 8 znaków, duża i mała litera, cyfra, znak specjalny)</label>
+                {% endif %}
+            </p>
+            <p>
+                <label>Powtórz hasło</label>
+                <input type="password" class="form-control validated-input" id="rpassword" name="rpassword" placeholder="Powtórz hasło"/>
+                {% if 'rpassword' in messages %}
+                <label class="alert alert-danger" role="alert">Różne hasła</label>
+                {% endif %}
+            </p>
+        </div>
+        <input type="submit" name="submit" value="Zarejestruj się"/>
+    </form>
+</section>
+{% endwith %}
+{% endwith %}
+{% endblock %}
