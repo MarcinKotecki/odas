@@ -10,8 +10,10 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from bcrypt import hashpw, checkpw, gensalt
+from passlib.hash import bcrypt
 from Crypto.Cipher import DES, AES
 from Crypto.Random import get_random_bytes
+from Crypto.Util import Counter
 import base64
 import hashlib
 
@@ -68,7 +70,7 @@ def user_exists(login):
     return db.session.query(UserModel).filter_by(login=login).first()
 
 def create_user(data):
-    data["password"] = hashpw(data["password"].encode('utf-8'), gensalt(5)).decode('utf8')
+    data["password"] = bcrypt.using(rounds=5).hash(data["password"])
     db.session.add(UserModel(data))
     db.session.commit()
 
@@ -76,7 +78,7 @@ def verify_user(login, password):
     if not user_exists(login):
         return False
     hpassword = db.session.query(UserModel).filter_by(login=login).first().password
-    return checkpw(password.encode('utf-8'), hpassword.encode('utf-8'))
+    return bcrypt.verify(password, hpassword)
 
 def update_password(login, password):
     user = db.session.query(UserModel).filter_by(login=login).first()
@@ -161,7 +163,11 @@ def get_last_login(user):
             LoginAttemptModel.user.like(user),
             LoginAttemptModel.is_success.like("true")
         )
-    ).order_by(desc(LoginAttemptModel.time)).first()
+    ).order_by(desc(LoginAttemptModel.time))
+    try:
+        lasttime = lasttime[1]
+    except:
+        return None
     return datetime.utcfromtimestamp(lasttime.time).strftime('%Y-%m-%d %H:%M:%S') if lasttime else None
 
 def check_suspicious_attempts(user, ip):
@@ -171,9 +177,12 @@ def check_suspicious_attempts(user, ip):
             LoginAttemptModel.ip.like(ip),
             LoginAttemptModel.is_success.like("true")
         )
-    ).order_by(desc(LoginAttemptModel.time)).first()
+    ).order_by(desc(LoginAttemptModel.time))
+    try:
+        lasttime = lasttime[1].time
+    except:
+        lasttime = 0
 
-    lasttime = lasttime.time if lasttime else 0
     attempts = db.session.query(LoginAttemptModel).filter(
         and_(
             LoginAttemptModel.user.like(user),
@@ -226,8 +235,9 @@ class NoteModel(db.Model):
 
 def create_note(data):
     if (len(data.get('password')) > 0):
-        data["text"] = encrypt_text(data["text"], data["password"] + data["id"])
-        data["password"] = hashpw(data["password"].encode(), gensalt(5)).decode()
+        nonce = base64.b64encode(get_random_bytes(8)).decode()
+        data["text"] = encrypt_text(data["text"], data["password"] + nonce)
+        data["password"] = hashpw(data["password"].encode(), gensalt(5)).decode() + nonce
     if data["file"]:
         file_data = {
             "id": uuid.uuid4().hex,
@@ -244,11 +254,11 @@ def create_note(data):
 def get_note(id, user, password):
     note = db.session.query(NoteModel).filter_by(id=id).first()
     if (note.owner == user or note.is_public == "true"):
-        if checkpw(password.encode(), note.password.encode()):
-            note = note.as_dict()
-            note["text"] = decrypt_text(note["text"], password + note["id"])
-            note["password"] = "false"
-            return note
+        if checkpw(password.encode(), note.password[:-12].encode()):
+            note_d = note.as_dict()
+            note_d["text"] = decrypt_text(note_d["text"], password + note.password[-12:])
+            note_d["password"] = "false"
+            return note_d
         else:
             return None
     else:
@@ -267,14 +277,18 @@ def expand_data(data):
     return data + b"\x00"*(16-len(data)%16) 
 
 def encrypt_text(text, password):
-    key = hashlib.sha256(password.encode()).digest()
-    aes = AES.new(key, AES.MODE_ECB)
+    nonce = base64.b64decode(password[-12:].encode())
+    counter = Counter.new(64, nonce) 
+    key = hashlib.sha256(password[0:-12].encode()).digest()
+    aes = AES.new(key, AES.MODE_CTR, counter=counter)
     encrypted = aes.encrypt(expand_data(text.encode()))
     return base64.b64encode(encrypted).decode()
 
 def decrypt_text(text, password):
-    key = hashlib.sha256(password.encode()).digest()
-    aes = AES.new(key, AES.MODE_ECB)
+    nonce = base64.b64decode(password[-12:].encode())
+    counter = Counter.new(64, nonce) 
+    key = hashlib.sha256(password[0:-12].encode()).digest()
+    aes = AES.new(key, AES.MODE_CTR, counter=counter)
     encrypted = base64.b64decode(text.encode())
     return aes.decrypt(encrypted).decode()
 #------------------------------------------------------------------------------------------------
@@ -367,8 +381,6 @@ def login():
         return redirect('/login')
 
     session['user'] = login
-    suspicious_attempts = check_suspicious_attempts(login, request.remote_addr)
-    last_login = get_last_login(login)
     register_attempt({
         "user": login,
         "time": int(stime),
@@ -376,7 +388,7 @@ def login():
         "ip": request.remote_addr
     })
     slow_down(stime, 2 + failed_attemps)
-    return redirect(url_for("dashboard", attempts = suspicious_attempts, last_login = last_login))
+    return redirect(url_for("dashboard"))
     
 @app.route('/logout')
 def logout():
@@ -387,13 +399,21 @@ def logout():
 def dashboard():
     if 'user' not in session:
         return redirect('/login')
+    login = session['user']
+    if 'initial_info' not in session:
+        suspicious_attempts = check_suspicious_attempts(login, request.remote_addr)
+        last_login = get_last_login(login)
+        session['initial_info'] = "done"
+    else:
+        suspicious_attempts = []
+        last_login = None
     notes = get_notes(session['user'])
     unotes = session.get('unlocked_notes')
     if unotes:
         for i in range(0, len(notes)):
             if notes[i].get('id') in unotes:
                 notes[i] = unotes.get(notes[i].get('id'))
-    return render_template("dashboard.html", last_login = None, notes = notes)
+    return render_template("dashboard.html", attempts = suspicious_attempts, last_login = last_login, notes = notes)
 
 @app.route('/note', methods=["POST"])
 def note_create():
@@ -496,10 +516,6 @@ def pass_recovery_post():
     login = request.form.get("login")
     msg = generate_recovery_email(login)
     return render_template("pass-recovery.html", info=True, msg=msg)
-
-@app.route('/test/<user>', methods=["GET"])
-def test(user):
-    return generate_pass_reset_token(user), 200
 
 #------------------------------------------------------------------------------------------------
 

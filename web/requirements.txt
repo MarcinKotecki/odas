@@ -11,3 +11,4 @@ requests
 pycryptodome
 regex
 PyJWT
+passlib
